@@ -22,7 +22,7 @@ typedef int tid_t;
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+	#define PRI_MAX 63                      /* Highest priority. */
 
 /* A kernel thread or user process.
 
@@ -81,26 +81,36 @@ typedef int tid_t;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 struct thread
-  {
-    /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
+{
+   /* Owned by thread.c. */
+   tid_t tid;                          /* Thread identifier. */
+   enum thread_status status;          /* Thread state. */
+   char name[16];                      /* Name (for debugging purposes). */
+   uint8_t *stack;                     /* Saved stack pointer. */
+   int priority;                       /* Priority. */
+   int64_t wakeUp;// 1                    /* Wake-Up. */
+   int nice;//3
+   int recent_cpu;//3
+   struct list_elem allelem;           /* List element for all threads list. */
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
+   /* Shared between thread.c and synch.c. */
+   struct list_elem elem;              /* List element. */
+   
+   /* priority inversion */
+   int original_priority;
+   struct lock *wait_lock;
+   struct list donation_list;
+   struct list_elem donation_elem;
+   ////////////////////////
 
-#ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-#endif
+   #ifdef USERPROG
+      /* Owned by userprog/process.c. */
+      uint32_t *pagedir;                  /* Page directory. */
+   #endif
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-  };
+   /* Owned by thread.c. */
+   unsigned magic;                     /* Detects stack overflow. */
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -137,5 +147,22 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+//void thread_sleep(int64_t ticks);
+void thread_sleep (int64_t start , int64_t ticks);
+void thread_awake(int64_t ticks);
+
+//
+bool thread_priority_compare (struct list_elem *new, struct list_elem *r_list, void *aux);
+
+//
+bool donation_priority_compare (const struct list_elem *a, const struct list_elem *b, void *aux);
+void donate_priority (void);
+void lock_release_helper (struct lock *lock);
+void priority_sort (void);
+
+static inline int max(int a, int b) {
+    return (a > b) ? a : b;
+}
 
 #endif /* threads/thread.h */
