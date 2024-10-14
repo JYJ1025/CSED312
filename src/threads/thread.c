@@ -244,7 +244,6 @@ priority_sort (void)
     curr->priority = max(curr->priority, front->priority);
   }
 }
-////////////////////////
 
 bool 
 thread_priority_compare (struct list_elem *a, struct list_elem *b, void *aux UNUSED)
