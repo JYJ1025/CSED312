@@ -268,7 +268,6 @@ swap_for_update (void)
   }
 }
 
-/* thread sleep */ // 추가
 void
 thread_sleep (int64_t start , int64_t ticks)
 {
@@ -289,7 +288,6 @@ thread_sleep (int64_t start , int64_t ticks)
   intr_set_level (old_level);
 }
 
-/* thread awake */ // 추가
 void 
 thread_awake (int64_t ticks)
 {
