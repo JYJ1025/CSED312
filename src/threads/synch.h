@@ -40,8 +40,6 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
-/* synchronization */
-bool sema_priority_compare (const struct list_elem *new, const struct list_elem *now, void *aux);
 
 /* Optimization barrier.
 

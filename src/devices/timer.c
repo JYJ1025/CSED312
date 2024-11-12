@@ -9,6 +9,7 @@
 #include "threads/thread.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
+
 #if TIMER_FREQ < 19
 #error 8254 timer requires TIMER_FREQ >= 19
 #endif
@@ -49,9 +50,7 @@ timer_calibrate (void)
 
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
-  // loops_per_tick을 1024로 초기화    
   loops_per_tick = 1u << 10;
-  
   while (!too_many_loops (loops_per_tick << 1)) 
     {
       loops_per_tick <<= 1;
@@ -91,10 +90,11 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-  ASSERT (intr_get_level () == INTR_ON);
-  thread_sleep (start, ticks);
-}
 
+  ASSERT (intr_get_level () == INTR_ON);
+  while (timer_elapsed (start) < ticks) 
+    thread_yield ();
+}
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
@@ -165,27 +165,13 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  // printf("Thread %s is running timer_interrupt.\n", thread_name());
   ticks++;
   thread_tick ();
-
-  if (thread_mlfqs){
-    mlfqs_increment_recent_cpu();
-    if (timer_ticks() % 4  == 0) {
-      mlfqs_recalculate_priority();
-      if (timer_ticks () % 100 == 0){
-        mlfqs_calculate_load_avg();
-        mlfqs_recalculate_recent_cpu ();
-        }
-    }
-  }
-
-  thread_awake (ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -218,7 +204,7 @@ static void NO_INLINE
 busy_wait (int64_t loops) 
 {
   while (loops-- > 0)
-    barrier (); // 최적화된 실행을 막기 위해서 사용 
+    barrier ();
 }
 
 /* Sleep for approximately NUM/DENOM seconds. */
