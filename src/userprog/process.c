@@ -609,3 +609,70 @@ struct thread* get_child_process (pid_t pid) {
   return NULL;
 }
 
+bool handle_fault(struct vm_entry *vme) {
+  lock_acquire(&frame_lock);
+  bool success = false;
+
+  struct frame* frame = alloc_frame (PAL_USER);
+  frame->vme = vme;
+
+  switch(vme->type)
+  {
+    case VM_BIN:
+      success = load_file(frame->page_addr, vme);
+      break;
+    case VM_FILE:
+      success = load_file(frame->page_addr, vme);
+      break;
+    case VM_ANON:
+      // success = swap_in(vme->swap_slot, frame->page_addr);
+      break;
+    default:
+      lock_release(&frame_lock);
+      return false;
+  }
+
+  if (!success) {
+    free_frame(frame->page_addr);
+    lock_release(&frame_lock);
+    return false;
+  }
+  if (!install_page(vme->vaddr, frame->page_addr, vme->writable)) {
+    free_frame(frame->page_addr);
+    lock_release(&frame_lock);
+    return false;
+  }
+
+  vme->is_loaded = true;
+  lock_release(&frame_lock);
+  return true;
+}
+
+bool expand_stack(void *addr)
+{
+  lock_acquire(&frame_lock);
+  struct frame *frame;
+  void *upage = pg_round_down(addr);
+  
+  frame = alloc_frame(PAL_USER | PAL_ZERO);
+  if (frame != NULL)
+  {
+    if (!install_page(upage, frame->page_addr, true))
+    {
+      free_frame(frame->page_addr);
+      lock_release(&frame_lock);
+      return false;
+    }
+  }
+  else
+  {
+    lock_release(&frame_lock);
+    return false;
+  }
+
+  frame->vme = vme_construct(VM_ANON, upage, true, true, NULL, NULL, 0, 0);
+
+  lock_release(&frame_lock);
+  return vme_insert(&thread_current()->vm, frame->vme);
+}
+
