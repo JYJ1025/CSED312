@@ -8,7 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
-#include "userprog/syscall.h" // new
+#include "userprog/syscall.h" 
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -18,6 +18,9 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+// project 3
+#include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -66,6 +69,9 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+
+  // project 3
+  vm_init(&thread_current()->vm);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -136,6 +142,9 @@ process_exit (void)
    
   palloc_free_page(cur->fd_table);
   file_close(cur->running_file);
+
+  // project 3
+  // vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -458,24 +467,29 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
+      ////////////////////////////////* project 3 *////////////////////////////////
+      struct frame *frame = alloc_frame(PAL_USER);
+      if (frame->page_addr == NULL)
         return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      // Load this page
+      if (file_read (file, frame->page_addr, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          free_frame (frame->page_addr);
           return false; 
         }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
+      memset (frame->page_addr + page_read_bytes, 0, page_zero_bytes);
+      // Add the page to the process's address space
+      if (!install_page (upage, frame->page_addr, writable)) 
         {
-          palloc_free_page (kpage);
+          free_frame (frame->page_addr);
           return false; 
         }
+      // -> load_segment는 frame을 할당 받지 않도록 한다. 
+      struct vm_entry *vme = vme_construct(VM_BIN, upage, writable, false, file, ofs, page_read_bytes, page_zero_bytes);
+      if (!vme)
+        return false;
+      vme_insert(&thread_current()->vm, vme);
+      /////////////////////////////////////////////////////////////////////////////////
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -490,22 +504,28 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp, char** argv, int argc) 
 {
-  uint8_t *kpage;
+  ////////////////////////////////* project 3 *////////////////////////////////
+  struct frame *frame;
   bool success = false;
-  struct thread *t = thread_current ();
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success) {
-        *esp = PHYS_BASE;
-        argument_stack(esp, argv, argc);
+  frame = alloc_frame(PAL_USER | PAL_ZERO);
+  if (frame->page_addr != NULL){
+    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, frame->page_addr, true);
+    if (success) {
+      frame->vme = vme_construct(VM_ANON, ((uint8_t *)PHYS_BASE) - PGSIZE, true, true, NULL, NULL, 0, 0);
+      if (!frame->vme) {
+        return false;
       }
-      else
-        palloc_free_page (kpage);
+      vme_insert(&thread_current()->vm, frame->vme);
+
+      *esp = PHYS_BASE;
+      argument_stack(esp, argv, argc);
     }
-  
+  }
+  else {
+    free_frame (frame->page_addr);
+  }
+  /////////////////////////////////////////////////////////////////////////////////
   return success;
 }
 

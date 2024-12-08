@@ -109,6 +109,8 @@ struct thread {
    struct file **fd_table;
    struct file *running_file;
    int fd_cnt;
+   // project 3
+   struct hash vm;
    #endif
 
       /* Owned by thread.c. */
