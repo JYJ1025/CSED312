@@ -42,7 +42,7 @@ struct frame* frame_alloc(enum palloc_flags flags)
     //     return NULL;
     // }
     struct frame* frame = (struct frame *)malloc(sizeof(struct frame));
-    memset(frame, 0, sizeof(struct page));
+    memset(frame, 0, sizeof(struct frame));
     frame->thread = thread_current();
     frame->page_addr = palloc_get_page(flags);
     

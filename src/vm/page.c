@@ -8,7 +8,7 @@
 #include "filesys/file.h"
 
 #include "userprog/syscall.h"
-extern struct lock lock_file;
+extern struct lock file_lock;
 
 static unsigned vm_hash(const struct hash_elem *, void *UNUSED);
 static bool vm_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
