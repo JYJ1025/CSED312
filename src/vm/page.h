@@ -10,7 +10,7 @@
 #include "threads/palloc.h"
 #include "filesys/off_t.h"
 #include "userprog/syscall.h"
-extern struct lock lru_lock;
+extern struct lock frame_lock;
 
 
 struct vm_entry {
@@ -25,13 +25,6 @@ struct vm_entry {
     size_t zero_bytes;
 
     struct hash_elem elem;
-};
-
-struct page {
-    void *kaddr;
-    struct vm_entry *vme;
-    struct thread *thread;
-    struct list_elem lru_elem;
 };
 
 // static struct list_elem *get_next_lru_clock();

@@ -125,70 +125,69 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
-  bool not_present;  /* True: not-present page, false: writing r/o page. */
-  bool write;        /* True: access was write, false: access was read. */
-  bool user;         /* True: access by user, false: access by kernel. */
-  void *fault_addr;  /* Fault address. */
+   bool not_present;  /* True: not-present page, false: writing r/o page. */
+   bool write;        /* True: access was write, false: access was read. */
+   bool user;         /* True: access by user, false: access by kernel. */
+   void *fault_addr;  /* Fault address. */
 
-  /* Obtain faulting address, the virtual address that was
-     accessed to cause the fault.  It may point to code or to
-     data.  It is not necessarily the address of the instruction
-     that caused the fault (that's f->eip).
-     See [IA32-v2a] "MOV--Move to/from Control Registers" and
-     [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
-     (#PF)". */
-  asm ("movl %%cr2, %0" : "=r" (fault_addr));
+   /* Obtain faulting address, the virtual address that was
+      accessed to cause the fault.  It may point to code or to
+      data.  It is not necessarily the address of the instruction
+      that caused the fault (that's f->eip).
+      See [IA32-v2a] "MOV--Move to/from Control Registers" and
+      [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
+      (#PF)". */
+   asm ("movl %%cr2, %0" : "=r" (fault_addr));
 
-  /* Turn interrupts back on (they were only off so that we could
-     be assured of reading CR2 before it changed). */
-  intr_enable ();
+   /* Turn interrupts back on (they were only off so that we could
+      be assured of reading CR2 before it changed). */
+   intr_enable ();
 
-  /* Count page faults. */
-  page_fault_cnt++;
+   /* Count page faults. */
+   page_fault_cnt++;
 
-  /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
-  if(!not_present)
-  {
-    sys_exit(-1);
-  }
+   /* Determine cause. */
+   not_present = (f->error_code & PF_P) == 0;
+   write = (f->error_code & PF_W) != 0;
+   user = (f->error_code & PF_U) != 0;
+   
+   if(!not_present) {
+      sys_exit(-1);
+   }
 
-   bool load = false;
-  struct vm_entry *vme = find_vme (fault_addr);
-   if (!vme)
-   {
-      if (!verify_stack(fault_addr, f->esp))
-      {
+   // bool load = false;
+   struct vm_entry *vme = find_vme (fault_addr);
+   if (vme) {
+      bool load = handle_mm_fault(vme);
+      // load = handle_mm_fault(vme);
+      if(vme->is_loaded == true) {
+         load = true;
+      }
+   }
+   else {
+      if (!is_user_vaddr(fault_addr)) {
          sys_exit(-1);
       }
-      if (!expand_stack(fault_addr))
-      {
+      if (fault_addr < f->esp - 32 || fault_addr < 0xC0000000 - 0x8000000) {
+         sys_exit(-1);
+      }
+      bool is_expand = expand_stack(fault_addr);
+      if (!is_expand) {
          sys_exit(-1);
       }
       return;
    }
-   else
-   {
-      load = handle_mm_fault(vme);
-      if(vme->is_loaded == true)
-      {
-         load = true;
-      }
-   }
 
-
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-     if(!load)
-     {
-         printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-         kill (f);
-     }
+   /* To implement virtual memory, delete the rest of the function
+      body, and replace it with code that brings in the page to
+      which fault_addr refers. */
+   // if(!load)
+   // {
+   //       printf ("Page fault at %p: %s error %s page in %s context.\n",
+   //       fault_addr,
+   //       not_present ? "not present" : "rights violation",
+   //       write ? "writing" : "reading",
+   //       user ? "user" : "kernel");
+   //       kill (f);
+   // }
 }

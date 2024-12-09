@@ -10,10 +10,10 @@
 
 struct frame
 {
-	void *page_addr; 
-	struct vm_entry *vme;
-	struct thread *thread;
-	struct list_elem f_elem; 
+   void *page_addr; 
+   struct vm_entry *vme;
+   struct thread *thread;
+   struct list_elem f_elem; 
 };
 
 extern struct list frame_table;
