@@ -30,7 +30,7 @@ void get_argument(void *esp, void **arg, int count) {
     
     valid_access((esp + 4 * i));
 
-    if (!find_vme((esp + 4 * i))) {
+    if (!vme_find((esp + 4 * i))) {
         uint32_t addr_u32 = (uint32_t)(esp + 4 * i);
         uint32_t esp_u32 = (uint32_t)esp;
 
@@ -131,9 +131,9 @@ int sys_open(const char *file)
     file_deny_write(f);
   }
 
-  int fd = thread_current()->fd_count;
+  int fd = thread_current()->fd_cnt;
   thread_current()->fd_table[fd] = f;
-  thread_current() -> fd_count++;
+  thread_current() -> fd_cnt++;
   lock_release(&file_lock);
   return fd;
 }
@@ -142,7 +142,7 @@ int sys_filesize(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_count) {
+  if(fd < thread_current()->fd_cnt) {
       f = thread_current()->fd_table[fd];
     return file_length(f);
    }
@@ -167,7 +167,7 @@ int sys_read(int fd, void *buffer, unsigned size)
     sys_exit (-1);
   }
 
-  if(thread_current()->fd_count < fd) {
+  if(thread_current()->fd_cnt < fd) {
     sys_exit (-1);
   }
 
@@ -210,7 +210,7 @@ int sys_write(int fd, const void *buffer, unsigned size)
     sys_exit (-1);
   }
 
-  if (fd > thread_current()->fd_count) {
+  if (fd > thread_current()->fd_cnt) {
     sys_exit(-1);
   }
 
@@ -237,7 +237,7 @@ void sys_seek(int fd, unsigned position)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_count) {
+  if(fd < thread_current()->fd_cnt) {
     f = thread_current()->fd_table[fd];
     file_seek(f, position);
   }
@@ -251,7 +251,7 @@ unsigned sys_tell(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_count) {
+  if(fd < thread_current()->fd_cnt) {
     f = thread_current()->fd_table[fd];
     return file_tell(f);
    }
@@ -264,7 +264,7 @@ unsigned sys_tell(int fd)
 void sys_close(int fd)
 {
   struct file *f;
-  if(fd < thread_current()->fd_count) {
+  if(fd < thread_current()->fd_cnt) {
       f = thread_current()->fd_table[fd];
    }
   else {

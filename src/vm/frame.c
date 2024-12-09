@@ -32,15 +32,14 @@ void frame_delete(struct frame *frame) {
   {
     list_remove(&frame->f_elem);
   }
+  
 }
 
 // frame table alloc/free
 struct frame* frame_alloc(enum palloc_flags flags)
 {
     ASSERT(flags & PAL_USER);
-    // if((flags & PAL_USER) == 0){
-    //     return NULL;
-    // }
+
     struct frame* frame = (struct frame *)malloc(sizeof(struct frame));
     memset(frame, 0, sizeof(struct frame));
     frame->thread = thread_current();
@@ -67,12 +66,12 @@ void frame_evict() {
     bool dirty = pagedir_is_dirty(frame->thread->pagedir, frame->vme->vaddr);
 
     if (frame->vme->type == VM_FILE && dirty) {
-        // lock_acquire(&file_lock); ㅁㄹ
+        // lock_acquire(&file_lock); 
         file_write_at(frame->vme->file, frame->page_addr, frame->vme->read_bytes, frame->vme->offset);
-        // lock_release(&file_lock); ㅁㄹ
+        // lock_release(&file_lock); 
     }
     else if (frame->vme->type == VM_BIN && dirty) {
-        frame->vme->type = VM_ANON; // -> 이게 예외처리임 ㅁㄹ
+        frame->vme->type = VM_ANON; // -> 이게 예외처리임
     }
 
     frame->vme->is_loaded = false;

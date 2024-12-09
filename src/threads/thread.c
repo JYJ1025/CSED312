@@ -311,7 +311,7 @@ thread_exit (void)
   list_remove (&thread_current()->allelem);
 
   if(thread_current() != initial_thread){
-	  sema_up(&(thread_current()->wait_semaphore));
+     sema_up(&(thread_current()->wait_semaphore));
   }
   thread_current ()->status = THREAD_DYING;
   schedule ();
