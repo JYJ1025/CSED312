@@ -16,17 +16,17 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
-#include "threads/malloc.h"
+#include "threads/malloc.h" // new
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+
 #include "vm/page.h"
-// #include "vm/swap.h"
 #include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 extern struct lock lock_file;
-extern struct lock lru_lock;
+extern struct lock frame_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -63,7 +63,7 @@ process_execute (const char *file_name)
   for(e = list_begin(&thread_current()->child_list);e!= list_end(&thread_current()->child_list);e=list_next(e))
   {
     child = list_entry(e, struct thread, child_elem);
-    if(child->exit_status == -1)
+    if(child->exit_code == -1)
       return process_wait(tid); 
   }
   return tid;
@@ -95,12 +95,12 @@ start_process (void *file_name_)
   argc = fn_to_argument(argv, fn_copy); // new
   success = load (argv[0], &if_.eip, &if_.esp);
 
-  thread_current()->isLoad = success;
+  thread_current()->is_load = success;
   if(success){ //new
     argument_stack(argv, argc, &if_.esp);
   }
   //hex_dump(if_.esp , if_.esp , PHYS_BASE-if_.esp , true);
-  sema_up(&thread_current()->sema_exec);
+  sema_up(&thread_current()->exec_semaphore);
 
   //printf("Checking Memory\n"); // for debugging
   //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true); // for debugging
@@ -144,8 +144,8 @@ process_wait (tid_t child_tid)
   {
     return -1;
   }
-  sema_down(&child->sema_wait);
-  status = child->exit_status;
+  sema_down(&child->wait_semaphore);
+  status = child->exit_code;
   list_remove(&(child->child_elem));
 	palloc_free_page(child);
 
@@ -499,7 +499,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->zero_bytes = page_zero_bytes;
 
 
-      insert_vme (&thread_current ()->vm, vme);
+      vme_insert (&thread_current ()->vm, vme);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -515,31 +515,31 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  lock_acquire(&lru_lock);
-  struct page *kpage;
+  lock_acquire(&frame_lock);
+  struct frame *frame;
 
-  kpage = alloc_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
+  frame = frame_alloc (PAL_USER | PAL_ZERO);
+  if (frame != NULL) 
     {
-      if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage->kaddr, true))
+      if (install_page(((uint8_t *)PHYS_BASE) - PGSIZE, frame->page_addr, true))
         *esp = PHYS_BASE;
       else
       {
-        free_page(kpage->kaddr);
-        lock_release(&lru_lock);
+        frame_free(frame->page_addr);
+        lock_release(&frame_lock);
         return false;
       }
     }
     else
     {
-      lock_release(&lru_lock);
+      lock_release(&frame_lock);
       return false;
     }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
     if (!vme)
     {
-      lock_release(&lru_lock);
+      lock_release(&frame_lock);
       return false;
     }
 
@@ -555,10 +555,10 @@ setup_stack (void **esp)
     vme->read_bytes = 0;
     vme->zero_bytes = 0;
 
-    kpage->vme =vme;
+    frame->vme =vme;
 
-    lock_release(&lru_lock);
-    return insert_vme(&thread_current()->vm, kpage->vme);
+    lock_release(&frame_lock);
+    return vme_insert(&thread_current()->vm, frame->vme);
 }
 
 bool verify_stack(uint32_t addr, void *esp)
@@ -578,30 +578,30 @@ bool verify_stack(uint32_t addr, void *esp)
 
 bool expand_stack(void *addr)
 {
-  lock_acquire(&lru_lock);
-  struct page *kpage;
+  lock_acquire(&frame_lock);
+  struct frame *frame;
   void *upage = pg_round_down(addr);
   
-  kpage = alloc_page(PAL_USER | PAL_ZERO);
-  if (kpage != NULL)
+  frame = frame_alloc(PAL_USER | PAL_ZERO);
+  if (frame != NULL)
   {
-    if (!install_page(upage, kpage->kaddr, true))
+    if (!install_page(upage, frame->page_addr, true))
     {
-      free_page(kpage->kaddr);
-      lock_release(&lru_lock);
+      frame_free(frame->page_addr);
+      lock_release(&frame_lock);
       return false;
     }
   }
   else
   {
-    lock_release(&lru_lock);
+    lock_release(&frame_lock);
     return false;
   }
 
     struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
     if (!vme)
     {
-      lock_release(&lru_lock);
+      lock_release(&frame_lock);
       return false;
     }
 
@@ -617,10 +617,10 @@ bool expand_stack(void *addr)
     vme->read_bytes = 0;
     vme->zero_bytes = 0;
 
-    kpage->vme =vme;
+    frame->vme =vme;
 
-    lock_release(&lru_lock);
-    return insert_vme(&thread_current()->vm, kpage->vme);
+    lock_release(&frame_lock);
+    return vme_insert(&thread_current()->vm, frame->vme);
 }
 
 
@@ -769,28 +769,28 @@ void process_close_file(int fd)
 
 bool handle_mm_fault(struct vm_entry *vme)
 {
-  lock_acquire(&lru_lock);
+  lock_acquire(&frame_lock);
   bool success = false;
   
-  struct page *kpage;
-  kpage = alloc_page(PAL_USER);
-  kpage->vme = vme;
+  struct frame *frame;
+  frame = frame_alloc(PAL_USER);
+  frame->vme = vme;
 
   if(vme->type==VM_BIN)
   {
-    if (!load_file(kpage->kaddr, vme))
+    if (!load_file(frame->page_addr, vme))
     {
-      free_page(kpage->kaddr);
-      lock_release(&lru_lock);
+      frame_free(frame->page_addr);
+      lock_release(&frame_lock);
       return false;
     }
   }
   else if(vme->type==VM_FILE)
   {
-    if (!load_file(kpage->kaddr, vme))
+    if (!load_file(frame->page_addr, vme))
     {
-      free_page(kpage->kaddr);
-      lock_release(&lru_lock);
+      frame_free(frame->page_addr);
+      lock_release(&frame_lock);
       return false;
     }
   }
@@ -798,16 +798,16 @@ bool handle_mm_fault(struct vm_entry *vme)
   {
     // swap_in(vme->swap_slot, kpage->kaddr);
   }
-  vme->is_loaded = install_page(vme->vaddr, kpage->kaddr, vme->writable);
+  vme->is_loaded = install_page(vme->vaddr, frame->page_addr, vme->writable);
   if (vme->is_loaded)
   {
-    lock_release(&lru_lock);
+    lock_release(&frame_lock);
     return true;
   }
   else
   {
-    free_page(kpage->kaddr);
-    lock_release(&lru_lock);
+    frame_free(frame->page_addr);
+    lock_release(&frame_lock);
     return false;
   }
 }

@@ -200,25 +200,20 @@ thread_create (const char *name, int priority,
 
   #ifdef USERPROG
     t->parent = thread_current();
-
     list_push_back(&(thread_current()->child_list), &(t->child_elem));
+ 
+    sema_init(&(t->wait_semaphore), 0);
+    sema_init(&(t->exec_semaphore), 0);
 
-    t->isExit = false;
-    t->isLoad = false;
-
-    sema_init(&(t->sema_wait), 0);
-    sema_init(&(t->sema_exec), 0);
-
+    t->is_load = false;
     t->fd_count = 2;
     t->fd_table = palloc_get_page(PAL_ZERO);
-    if(t->fd_table == NULL)
-    {
+    if(t->fd_table == NULL) {
       return TID_ERROR;
-    }
+    } 
 
-    list_init (&t->mmap_list);
-    t->mmap_nxt = 1;
-
+    // list_init (&t->mmap_list);
+    // t->mmap_nxt = 1;
   #endif
 
   /* Add to run queue. */
@@ -314,9 +309,9 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
-  thread_current()->isExit = true;
+
   if(thread_current() != initial_thread){
-	  sema_up(&(thread_current()->sema_wait));
+	  sema_up(&(thread_current()->wait_semaphore));
   }
   thread_current ()->status = THREAD_DYING;
   schedule ();

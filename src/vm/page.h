@@ -25,16 +25,7 @@ struct vm_entry {
     size_t zero_bytes;
 
     struct hash_elem elem;
-    // struct list_elem mmap_elem;
-    // size_t swap_slot;
 };
-
-// struct mmap_file {
-//     mapid_t mapid;
-//     struct file* file;
-//     struct list vme_list;
-//     struct list_elem elem;
-// };
 
 struct page {
     void *kaddr;
@@ -43,7 +34,7 @@ struct page {
     struct list_elem lru_elem;
 };
 
-static struct list_elem *get_next_lru_clock();
+// static struct list_elem *get_next_lru_clock();
 
 void vm_init(struct hash *vm);
 void vm_destroy(struct hash *vm);
@@ -51,9 +42,5 @@ struct vm_entry *find_vme(void *vaddr);
 bool insert_vme(struct hash *vm, struct vm_entry *vme);
 bool delete_vme(struct hash *vm, struct vm_entry *vme);
 bool load_file(void *kaddr, struct vm_entry *vme);
-
-void* try_to_free_pages(enum palloc_flags flags);
-struct page* alloc_page(enum palloc_flags flags);
-void free_page(void *kaddr);
 
 #endif

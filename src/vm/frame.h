@@ -2,18 +2,30 @@
 #define VM_FRAME_H
 
 #include <list.h>
-#include "vm/page.h"
+#include "threads/thread.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
-#include "threads/thread.h"
+#include "vm/page.h"
 
-extern struct list lru_list;
-extern struct lock lru_lock;
-extern struct list_elem *lru_clock;
+struct frame
+{
+	void *page_addr; 
+	struct vm_entry *vme;
+	struct thread *thread;
+	struct list_elem f_elem; 
+};
 
-void lru_list_init(void);
-void add_page_to_lru_list(struct page *page);
-void del_page_from_lru_list(struct page *page);
+extern struct list frame_table;
+extern struct lock frame_lock;
+extern struct list_elem *frame_clock; // ㅁㄹ
+
+void frame_table_init(void);
+void frame_insert(struct frame *frame);
+void frame_delete(struct frame *frame);
+
+void frame_evict(); 
+struct frame* frame_alloc(enum palloc_flags flags);
+void frame_free(void *addr);
 
 #endif

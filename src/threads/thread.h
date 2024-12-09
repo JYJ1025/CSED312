@@ -102,21 +102,16 @@ struct thread
     struct thread *parent;
     struct list_elem child_elem;
     struct list child_list;
-    bool isLoad;
-    bool isExit;
-    struct semaphore sema_wait;
-    struct semaphore sema_exec;
-    int exit_status;
+    struct semaphore wait_semaphore;
+    struct semaphore exec_semaphore;
+    bool is_load;
+    int exit_code;
 
     struct file **fd_table;
+    struct file *running_file;
     int fd_count;
 
-    struct file *running_file;
-
-    struct hash vm;     /* thread가 가진 virtual address space를 관리하는 hash table */
-
-    struct list mmap_list;
-    int mmap_nxt;
+    struct hash vm;  
 #endif
 
     /* Owned by thread.c. */

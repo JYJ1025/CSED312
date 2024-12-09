@@ -69,7 +69,7 @@ void sys_halt(void)
 
 void sys_exit(int status)
 {
-  thread_current()->exit_status = status;
+  thread_current()->exit_code = status;
   printf("%s: exit(%d)\n", thread_name(), status);
   thread_exit();
 }
@@ -84,8 +84,8 @@ pid_t sys_exec(const char *file)
     return -1;
   }
   child = get_child_process(pid);
-  sema_down(&(child->sema_exec));
-  if (!child->isLoad)
+  sema_down(&(child->exec_semaphore));
+  if (!child->is_load)
   {
     return -1;
   }

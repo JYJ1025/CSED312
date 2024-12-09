@@ -116,8 +116,8 @@ main (void)
   exception_init ();
   syscall_init ();
 #endif
-  // swap_init(); // Project 3
-  lru_list_init(); // Project 3
+
+  frame_table_init(); // Project 3
 
   /* Start thread scheduler and enable interrupts. */
   thread_start ();
@@ -253,7 +253,7 @@ parse_options (char **argv)
         scratch_bdev_name = value;
 #ifdef VM
       // else if (!strcmp (name, "-swap"))
-      //   swap_bdev_name = value;
+      //   swap_bdev_name = value;ㅁㄹ
 #endif
 #endif
       else if (!strcmp (name, "-rs"))
@@ -378,7 +378,7 @@ usage (void)
           "  -filesys=BDEV      Use BDEV for file system instead of default.\n"
           "  -scratch=BDEV      Use BDEV for scratch instead of default.\n"
 #ifdef VM
-          // "  -swap=BDEV         Use BDEV for swap instead of default.\n"
+          // "  -swap=BDEV         Use BDEV for swap instead of default.\n" ㅁㄹ
 #endif
 #endif
           "  -rs=SEED           Set random number seed to SEED.\n"
