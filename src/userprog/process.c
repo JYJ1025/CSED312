@@ -25,7 +25,7 @@
 
 // static thread_func start_process NO_RETURN;
 // static bool load (const char *cmdline, void (**eip) (void), void **esp);
-// extern struct lock lock_file;
+// extern struct lock file_lock;
 // extern struct lock frame_lock;
 
 // /* Starts a new thread running a user program loaded from
@@ -297,12 +297,12 @@
 //   ///////////////////////
 
 //   /* Open executable file. */
-//   lock_acquire(&lock_file); 
+//   lock_acquire(&file_lock); 
 //   file = filesys_open (file_name);
 
 //   if (file == NULL) 
 //     {
-//       lock_release(&lock_file); 
+//       lock_release(&file_lock); 
 //       printf ("load: %s: open failed\n", file_name);
 //       goto done; 
 //     }
@@ -310,7 +310,7 @@
 //   t->running_file = file;
 //   file_deny_write(file);
 
-//   lock_release(&lock_file);
+//   lock_release(&file_lock);
 
 
 //   /* Read and verify executable header. */
@@ -843,7 +843,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-extern struct lock lock_file;
+extern struct lock file_lock;
 extern struct lock frame_lock;
 
 /* Starts a new thread running a user program loaded from
@@ -1114,12 +1114,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  lock_acquire(&lock_file); 
+  lock_acquire(&file_lock); 
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      lock_release(&lock_file); 
+      lock_release(&file_lock); 
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
@@ -1127,7 +1127,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->running_file = file;
   file_deny_write(file);
 
-  lock_release(&lock_file);
+  lock_release(&file_lock);
 
 
   /* Read and verify executable header. */

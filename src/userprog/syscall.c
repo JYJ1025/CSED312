@@ -11,26 +11,10 @@
 #include "filesys/file.h"
 
 static void syscall_handler(struct intr_frame *);
-struct lock lock_file;
-
-// bool valid_access(void *addr)
-// {
-//   if(addr >= (void *)0x08048000 && addr < (void *)0xc0000000)
-//   {
-//     // 해당 주소가 page table에 mapping 되어있는지 확인 
-//     return pagedir_get_page(thread_current()->pagedir, addr) != NULL;
-//   }
-//   else
-//   {
-//     return false;
-//   }
+struct lock file_lock;
 
 void valid_access(void *addr)
 {
-  // if (!addr || !is_user_vaddr(addr) || !pagedir_get_page(thread_current()->pagedir, addr)) 
-  //   exit(-1);
-  // if (!addr || !is_user_vaddr(addr)) 
-  //   sys_exit(-1);
   if (addr >= (void *)0xc0000000 || addr < (void *)0x08048000 ) 
   {
     sys_exit(-1); // 커널 메모리 범위 접근 시 종료
@@ -46,7 +30,7 @@ void get_argument(void *esp, void **arg, int count) {
     
     valid_access((esp + 4 * i));
 
-    if (!vme_find((esp + 4 * i))) {
+    if (!find_vme((esp + 4 * i))) {
         uint32_t addr_u32 = (uint32_t)(esp + 4 * i);
         uint32_t esp_u32 = (uint32_t)esp;
 
@@ -147,9 +131,9 @@ int sys_open(const char *file)
     file_deny_write(f);
   }
 
-  int fd = thread_current()->fd_cnt;
+  int fd = thread_current()->fd_count;
   thread_current()->fd_table[fd] = f;
-  thread_current() -> fd_cnt++;
+  thread_current() -> fd_count++;
   lock_release(&file_lock);
   return fd;
 }
@@ -158,7 +142,7 @@ int sys_filesize(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_cnt) {
+  if(fd < thread_current()->fd_count) {
       f = thread_current()->fd_table[fd];
     return file_length(f);
    }
@@ -183,7 +167,7 @@ int sys_read(int fd, void *buffer, unsigned size)
     sys_exit (-1);
   }
 
-  if(thread_current()->fd_cnt < fd) {
+  if(thread_current()->fd_count < fd) {
     sys_exit (-1);
   }
 
@@ -226,7 +210,7 @@ int sys_write(int fd, const void *buffer, unsigned size)
     sys_exit (-1);
   }
 
-  if (fd > thread_current()->fd_cnt) {
+  if (fd > thread_current()->fd_count) {
     sys_exit(-1);
   }
 
@@ -253,7 +237,7 @@ void sys_seek(int fd, unsigned position)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_cnt) {
+  if(fd < thread_current()->fd_count) {
     f = thread_current()->fd_table[fd];
     file_seek(f, position);
   }
@@ -267,7 +251,7 @@ unsigned sys_tell(int fd)
 {
   struct file *f;
 
-  if(fd < thread_current()->fd_cnt) {
+  if(fd < thread_current()->fd_count) {
     f = thread_current()->fd_table[fd];
     return file_tell(f);
    }
@@ -280,7 +264,7 @@ unsigned sys_tell(int fd)
 void sys_close(int fd)
 {
   struct file *f;
-  if(fd < thread_current()->fd_cnt) {
+  if(fd < thread_current()->fd_count) {
       f = thread_current()->fd_table[fd];
    }
   else {

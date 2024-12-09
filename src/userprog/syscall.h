@@ -6,7 +6,7 @@ typedef int pid_t;
 typedef int mapid_t;
 
 
-void get_argument(void *esp, int *arg, int count);
+void get_argument(void *esp, void **arg, int count);
 void syscall_init (void);
 void sys_halt (void);
 void sys_exit (int status);
